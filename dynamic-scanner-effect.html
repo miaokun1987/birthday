@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态扫描效果</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #2A1F33;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', sans-serif;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        /* 背景遮罩层 */
+        .bg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1;
+        }
+
+        /* 粒子画布 */
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        /* 光效引导线容器 */
+        .light-beams-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* 单条光效 */
+        .light-beam {
+            position: absolute;
+            width: 3px;
+            height: 100%;
+            background: linear-gradient(180deg, 
+                transparent, 
+                rgba(230, 217, 245, 0.8), 
+                rgba(248, 240, 255, 0.9), 
+                rgba(230, 217, 245, 0.8), 
+                transparent
+            );
+            filter: blur(2px);
+            box-shadow: 0 0 20px rgba(230, 217, 245, 0.5);
+            animation: beamMove 4s infinite ease-in-out;
+        }
+
+        .light-beam:nth-child(1) {
+            left: 20%;
+            animation-delay: 0s;
+        }
+
+        .light-beam:nth-child(2) {
+            left: 40%;
+            animation-delay: 0.8s;
+        }
+
+        .light-beam:nth-child(3) {
+            left: 60%;
+            animation-delay: 1.6s;
+        }
+
+        .light-beam:nth-child(4) {
+            left: 80%;
+            animation-delay: 2.4s;
+        }
+
+        @keyframes beamMove {
+            0% {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+        }
+
+        /* 心形图标容器 */
+        .hearts-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .heart {
+            position: absolute;
+            font-size: 24px;
+            color: rgba(165, 92, 92, 0.6);
+            animation: floatHeart 6s infinite ease-in-out;
+            text-shadow: 0 0 10px rgba(255, 182, 193, 0.5);
+        }
+
+        @keyframes floatHeart {
+            0%, 100% {
+                transform: translateY(0) rotate(0deg) scale(1);
+                opacity: 0.6;
+            }
+            25% {
+                transform: translateY(-15px) rotate(5deg) scale(1.1);
+                opacity: 0.8;
+            }
+            50% {
+                transform: translateY(-25px) rotate(-5deg) scale(1);
+                opacity: 0.6;
+            }
+            75% {
+                transform: translateY(-15px) rotate(3deg) scale(1.05);
+                opacity: 0.7;
+            }
+        }
+
+        /* 文字容器 */
+        .text-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .floating-text {
+            position: absolute;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 18px;
+            text-shadow: 0 0 15px rgba(224, 208, 240, 0.8),
+                         0 0 30px rgba(224, 208, 240, 0.5);
+            white-space: nowrap;
+            transition: font-size 0.5s ease-in-out;
+            opacity: 0.85;
+        }
+
+        .main-text {
+            font-size: 32px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(230, 217, 245, 1),
+                         0 0 40px rgba(230, 217, 245, 0.8),
+                         0 0 60px rgba(230, 217, 245, 0.6);
+        }
+
+        /* 扫描框效果 */
+        .scan-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 280px;
+            border: 2px solid rgba(230, 217, 245, 0.3);
+            border-radius: 10px;
+            z-index: 6;
+            box-shadow: 0 0 30px rgba(230, 217, 245, 0.3),
+                        inset 0 0 30px rgba(230, 217, 245, 0.1);
+        }
+
+        .scan-frame::before,
+        .scan-frame::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(230, 217, 245, 0.8);
+            border-radius: 3px;
+        }
+
+        .scan-frame::before {
+            top: -5px;
+            left: -5px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .scan-frame::after {
+            bottom: -5px;
+            right: -5px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* 扫描线 */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(230, 217, 245, 0.8), 
+                rgba(255, 255, 255, 1), 
+                rgba(230, 217, 245, 0.8), 
+                transparent
+            );
+            box-shadow: 0 0 15px rgba(230, 217, 245, 0.8);
+            animation: scanMove 2s infinite ease-in-out;
+        }
+
+        @keyframes scanMove {
+            0%, 100% {
+                top: 0;
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+        }
+
+        /* 中心提示文字 */
+        .center-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            text-align: center;
+            z-index: 7;
+            text-shadow: 0 0 10px rgba(230, 217, 245, 0.8);
+            animation: pulseText 2s infinite ease-in-out;
+        }
+
+        @keyframes pulseText {
+            0%, 100% {
+                opacity: 0.7;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.05);
+            }
+        }
+
+        /* 聚焦效果 */
+        .focus-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, 
+                transparent 30%, 
+                rgba(0, 0, 0, 0.4) 100%
+            );
+            z-index: 0;
+        }
+
+        /* 音乐控制按钮 */
+        .music-control {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(230, 217, 245, 0.2);
+            border: 2px solid rgba(230, 217, 245, 0.5);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .music-control:hover {
+            background: rgba(230, 217, 245, 0.4);
+            transform: scale(1.1);
+        }
+
+        .music-control svg {
+            width: 24px;
+            height: 24px;
+            fill: rgba(255, 255, 255, 0.9);
+        }
+
+        .music-control.playing svg {
+            animation: rotate 2s linear infinite;
+        }
+
+        /* 文件选择按钮 */
+        .file-select-btn {
+            position: fixed;
+            top: 20px;
+            right: 85px;
+            z-index: 100;
+            background: rgba(230, 217, 245, 0.2);
+            border: 2px solid rgba(230, 217, 245, 0.5);
+            border-radius: 25px;
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .file-select-btn:hover {
+            background: rgba(230, 217, 245, 0.4);
+            transform: scale(1.05);
+        }
+
+        .file-select-btn svg {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            fill: rgba(255, 255, 255, 0.9);
+        }
+
+        #music-file {
+            display: none;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景音乐（浪漫英文歌） -->
+    <audio id="bg-music" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- 文件选择输入框 -->
+    <input type="file" id="music-file" accept="audio/mp3,audio/mpeg,audio/*">
+
+    <!-- 文件选择按钮 -->
+    <label class="file-select-btn" for="music-file">
+        <svg viewBox="0 0 24 24">
+            <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
+        </svg>
+        选择音乐
+    </label>
+
+    <!-- 音乐控制按钮 -->
+    <button class="music-control" id="music-toggle">
+        <svg viewBox="0 0 24 24" id="music-icon">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+        </svg>
+    </button>
+
+    <div class="focus-overlay"></div>
+    <div class="bg-overlay"></div>
+    
+    <canvas id="particle-canvas"></canvas>
+    
+    <div class="light-beams-container">
+        <div class="light-beam"></div>
+        <div class="light-beam"></div>
+        <div class="light-beam"></div>
+        <div class="light-beam"></div>
+    </div>
+    
+    <div class="hearts-container" id="hearts-container"></div>
+    
+    <div class="text-container" id="text-container"></div>
+    
+    <div class="scan-frame">
+        <div class="scan-line"></div>
+        <div class="center-text">你是人间的四月天，笑响点亮了四面风。</div>
+    </div>
+
+    <script>
+        // 粒子系统
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.5;
+                this.speedX = (Math.random() - 0.5) * 0.5;
+                this.speedY = (Math.random() - 0.5) * 0.5;
+                this.opacity = Math.random() * 0.5 + 0.2;
+                this.fadeSpeed = Math.random() * 0.01 + 0.005;
+                this.fadingOut = Math.random() > 0.5;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.fadingOut) {
+                    this.opacity -= this.fadeSpeed;
+                    if (this.opacity <= 0.1) {
+                        this.fadingOut = false;
+                    }
+                } else {
+                    this.opacity += this.fadeSpeed;
+                    if (this.opacity >= 0.7) {
+                        this.fadingOut = true;
+                    }
+                }
+
+                if (this.x < 0 || this.x > canvas.width || 
+                    this.y < 0 || this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const particleCount = 150;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            particles.forEach(particle => {
+                particle.update();
+                particle.draw();
+            });
+
+            requestAnimationFrame(animateParticles);
+        }
+
+        initParticles();
+        animateParticles();
+
+        // 生成漂浮心形
+        function createHearts() {
+            const container = document.getElementById('hearts-container');
+            const heartCount = 15;
+            const heartEmojis = ['❤️', '💕', '💖', '💗', '💝'];
+            
+            for (let i = 0; i < heartCount; i++) {
+                const heart = document.createElement('div');
+                heart.className = 'heart';
+                heart.textContent = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
+                heart.style.left = `${Math.random() * 90 + 5}%`;
+                heart.style.top = `${Math.random() * 80 + 10}%`;
+                heart.style.animationDelay = `${Math.random() * 6}s`;
+                heart.style.fontSize = `${Math.random() * 15 + 15}px`;
+                container.appendChild(heart);
+            }
+        }
+
+        // 生成漂浮文字（满屏随机移动）
+        function createFloatingTexts() {
+            const container = document.getElementById('text-container');
+            const texts = [
+                { text: '这个季节有你很甜哦！', isMain: false },
+                { text: '周琼琼', isMain: true },
+                { text: '人生如旅，我们并肩前行~', isMain: false },
+                { text: '我的爱意请查收', isMain: false },
+                { text: '如果末日有两张船票，你会跟我一起走吗？', isMain: false },
+                { text: '心动信号', isMain: false },
+                { text: '爱你哟~', isMain: false },
+                { text: '❤️', isMain: true }
+            ];
+
+            texts.forEach((item, index) => {
+                const textElement = document.createElement('div');
+                textElement.className = item.isMain ? 'floating-text main-text' : 'floating-text';
+                textElement.textContent = item.text;
+                textElement.style.left = `${Math.random() * 80 + 10}%`;
+                textElement.style.top = `${Math.random() * 80 + 10}%`;
+                textElement.style.animationDelay = `${index * 1.5}s`;
+                textElement.style.transition = 'all 0.8s ease-in-out';
+                
+                // 存储文字移动状态
+                textElement.dataset.isMoving = 'false';
+                textElement.dataset.moveCount = 0;
+                textElement.dataset.baseSize = item.isMain ? '32px' : '18px';
+                textElement.dataset.targetX = parseFloat(textElement.style.left);
+                textElement.dataset.targetY = parseFloat(textElement.style.top);
+                
+                container.appendChild(textElement);
+                
+                // 为每个文字添加随机移动
+                setTimeout(() => {
+                    moveTextRandomly(textElement);
+                }, index * 2000);
+            });
+        }
+
+        // 文字随机移动函数
+        function moveTextRandomly(textElement) {
+            const container = document.getElementById('text-container');
+            const moveCount = parseInt(textElement.dataset.moveCount) || 0;
+            
+            // 随机新位置
+            const newX = Math.random() * 80 + 10;
+            const newY = Math.random() * 80 + 10;
+            
+            textElement.dataset.targetX = newX;
+            textElement.dataset.targetY = newY;
+            textElement.dataset.isMoving = 'true';
+            
+            textElement.style.left = `${newX}%`;
+            textElement.style.top = `${newY}%`;
+            
+            // 移动完成后变换大小
+            setTimeout(() => {
+                textElement.dataset.isMoving = 'false';
+                textElement.dataset.moveCount = moveCount + 1;
+                
+                // 随机变换大小
+                const sizeScale = Math.random() * 0.8 + 0.6; // 0.6-1.4倍
+                const baseSize = textElement.dataset.baseSize;
+                const baseSizeNum = parseInt(baseSize);
+                const newSize = baseSizeNum * sizeScale;
+                
+                textElement.style.fontSize = `${newSize}px`;
+                
+                // 延迟一段时间后恢复原大小
+                setTimeout(() => {
+                    textElement.style.fontSize = baseSize;
+                }, 1000);
+                
+                // 继续下一次移动
+                setTimeout(() => {
+                    moveTextRandomly(textElement);
+                }, 1500 + Math.random() * 1000);
+            }, 800);
+        }
+
+// 背景音乐控制
+        const bgMusic = document.getElementById('bg-music');
+        const musicToggle = document.getElementById('music-toggle');
+        const musicIcon = document.getElementById('music-icon');
+        const musicFileInput = document.getElementById('music-file');
+        const fileSelectBtn = document.querySelector('.file-select-btn');
+        let isPlaying = false;
+
+        // 自动播放音乐
+        function autoPlayMusic() {
+            bgMusic.play().then(() => {
+                isPlaying = true;
+                musicToggle.classList.add('playing');
+            }).catch(error => {
+                console.log('自动播放失败，需要用户交互：', error);
+                // 添加点击页面任意位置播放音乐的提示
+                document.addEventListener('click', () => {
+                    if (!isPlaying) {
+                        bgMusic.play();
+                        isPlaying = true;
+                        musicToggle.classList.add('playing');
+                    }
+                }, { once: true });
+            });
+        }
+
+        // 页面加载完成后尝试自动播放
+        window.addEventListener('load', autoPlayMusic);
+
+        // 播放/暂停控制
+        musicToggle.addEventListener('click', () => {
+            if (isPlaying) {
+                bgMusic.pause();
+                musicToggle.classList.remove('playing');
+                musicIcon.innerHTML = '<path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>';
+            } else {
+                bgMusic.play();
+                musicToggle.classList.add('playing');
+                musicIcon.innerHTML = '<path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>';
+            }
+            isPlaying = !isPlaying;
+        });
+
+        // 文件选择功能
+        musicFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const fileURL = URL.createObjectURL(file);
+                bgMusic.src = fileURL;
+                fileSelectBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                    ${file.name.length > 10 ? file.name.substring(0, 10) + '...' : file.name}
+                `;
+                
+                // 如果正在播放，重新加载并播放新音乐
+                if (isPlaying) {
+                    bgMusic.play();
+                }
+            }
+        });
+
+        // 设置音量
+        bgMusic.volume = 0.3;
+
+        // 初始化
+        createHearts();
+        createFloatingTexts();
+
+        // 添加鼠标交互效果
+        document.addEventListener('mousemove', (e) => {
+            const scanFrame = document.querySelector('.scan-frame');
+            const rect = scanFrame.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            const angleX = (e.clientY - centerY) / 50;
+            const angleY = (e.clientX - centerX) / 50;
+            
+            scanFrame.style.transform = `translate(-50%, -50%) perspective(1000px) rotateX(${-angleX}deg) rotateY(${angleY}deg)`;
+        });
+    </script>
+</body>
+</html>
